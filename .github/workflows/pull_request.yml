@@ -85,3 +85,29 @@ jobs:
       - name: Check code
         uses: actions/checkout@v2
       - run: go test -v
+
+  build:
+    name: Build docker image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Buid docker image
+        env:
+          DOCKER_REPO: ghcr.io
+          DOCKER_REPO_PATH: ghcr.io/betuelsa
+          DOCKER_REPO_USER: marceloaguero
+          DOCKER_REPO_PSW: ${{ secrets.DOCKER_REPO_PSW }}
+          APP_NAME: poc-hello
+          IMAGE_PREFIX: feature
+          DOCKERFILE: Dockerfile
+          SERVICE_PATH: .
+        run: |
+          export COMMITS=$(git rev-list --count HEAD)
+          export COMMIT_SHA=$(git rev-parse --short HEAD)
+          export TIMESTAMP=$(date +%s)
+          export VERSION="${DOCKER_REPO_PATH}/${APP_NAME}:${IMAGE_PREFIX}-${COMMITS}-${COMMIT_SHA}-${TIMESTAMP}"
+          docker buildx build --file $DOCKERFILE --tag $VERSION $SERVICE_PATH
+          docker login $DOCKER_REPO --username $DOCKER_REPO_USER --password $DOCKER_REPO_PSW
+          docker push $VERSION
