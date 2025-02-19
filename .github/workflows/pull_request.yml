@@ -96,7 +96,7 @@ jobs:
       - name: Buid docker image
         env:
           DOCKER_REPO: ghcr.io
-          DOCKER_REPO_PATH: ghcr.io/betuelsa
+          DOCKER_REPO_PATH: ghcr.io/marceloaguero
           DOCKER_REPO_USER: marceloaguero
           DOCKER_REPO_PSW: ${{ secrets.DOCKER_REPO_PSW }}
           APP_NAME: poc-hello
