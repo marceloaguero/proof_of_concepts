@@ -45,9 +45,9 @@ func main() {
 func handler(w http.ResponseWriter, r *http.Request) {
 	name := os.Getenv("NAME")
 	if name == "" {
-		name = "World"
+		name = "Mundo"
 	}
-	fmt.Fprintf(w, "Hello %s!\n", name)
+	fmt.Fprintf(w, "Hola %s!\n", name)
 }
 
 // [END cloudrun_helloworld_service]
