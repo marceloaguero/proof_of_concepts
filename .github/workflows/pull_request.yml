@@ -84,7 +84,7 @@ jobs:
           go-version: 'stable'
       - name: Check code
         uses: actions/checkout@v2
-      - run: go test -v
+        run: go test -v
 
   build:
     name: Build docker image
