@@ -82,6 +82,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: 'stable'
+          
       - name: Check code
         uses: actions/checkout@v4
 
@@ -90,7 +91,8 @@ jobs:
   docker_build_push:
     env:
       REGISTRY: ghcr.io
-      IMAGE_PREFIX: qa
+      IMAGE_NAME: poc-hello
+      BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
     name: Build docker image and push into registry
     runs-on: ubuntu-latest
     permissions:
@@ -99,13 +101,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Build image tag
         run: |
-          export COMMITS=$(git rev-list --count HEAD)
+          export COMMIT_NUMBER=$(git rev-list --count HEAD)
           export COMMIT_SHA=$(git rev-parse --short HEAD)
           export TIMESTAMP=$(date +%s)
-          export IMAGE_TAG="${COMMITS}-${COMMIT_SHA}-${TIMESTAMP}"
+          export IMAGE_TAG="${COMMIT_NUMBER}"
           echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
 
       - name: Login to registry
@@ -117,10 +121,8 @@ jobs:
 
       - name: Build and push Docker image
         id: build-and-push
-        env:
-          IMAGE_NAME: poc-hello
         uses: docker/build-push-action@v5.4.0
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_PREFIX }}-${{ env.IMAGE_TAG }}
+          tags: ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.BRANCH_NAME }}-${{ env.IMAGE_TAG }}
