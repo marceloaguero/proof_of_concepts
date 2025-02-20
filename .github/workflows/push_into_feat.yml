@@ -3,7 +3,7 @@ name: Push into feat* branch
 on:
   push:
     branches:
-      - feat*
+      - 'feature/**'
 
 env:
   GOTOOLCHAIN: local
