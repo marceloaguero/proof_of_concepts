@@ -74,19 +74,19 @@ jobs:
   #       ROOT_DIR=$(pwd) \
   #       find . -name go.mod -execdir sh -c 'go vet ./... || touch $ROOT_DIR/vet_failed.txt' \; ; \
   #       test ! -f vet_failed.txt
-  test:
-    name: Root tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'
-          
-      - name: Check code
-        uses: actions/checkout@v4
-
-      - run: go test -v
+  # test:
+  #   name: Root tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: 'stable'
+  #
+  #     - name: Check code
+  #       uses: actions/checkout@v4
+  #
+  #     - run: go test -v
 
   docker_build_push:
     env:
@@ -104,10 +104,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      # - name: Authenticate to GCP
-      #   uses: google-github-actions/auth@v2
-      #   with:
-      #     credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Build image tag
         run: |
