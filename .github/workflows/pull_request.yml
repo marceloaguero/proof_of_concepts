@@ -7,7 +7,6 @@ on:
 
 env:
   GOTOOLCHAIN: local
-  GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
 
 jobs:
   # Split build and lint into a few different jobs so they can run in parallel.
@@ -105,10 +104,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ GCP_SA_KEY }}
+      # - name: Authenticate to GCP
+      #   uses: google-github-actions/auth@v2
+      #   with:
+      #     credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Build image tag
         run: |
