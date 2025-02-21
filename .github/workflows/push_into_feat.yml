@@ -92,7 +92,7 @@ jobs:
     env:
       REGISTRY: us-east1-docker.pkg.dev
       IMAGE_NAME: poc-hello
-      BRANCH_NAME: ${{ github.ref }}
+      #BRANCH_NAME: ${{ github.ref }}
     name: Build docker image and push into registry
     runs-on: ubuntu-latest
     permissions:
@@ -103,6 +103,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - - uses: nelonoel/branch-name@v1.0.1
 
       - name: Authenticate to GCP
         uses: 'google-github-actions/auth@v2'
