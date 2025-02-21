@@ -91,6 +91,7 @@ jobs:
   docker_build_push:
     env:
       REGISTRY: us-east1-docker.pkg.dev
+      REPOSITORY: proof-of-concepts
       IMAGE_NAME: poc-hello
     name: Build docker image and push into registry
     runs-on: ubuntu-latest
@@ -136,4 +137,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_BRANCH }}-${{ env.IMAGE_TAG_SUFFIX }}
+          tags: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_BRANCH }}-${{ env.IMAGE_TAG_SUFFIX }}
