@@ -153,4 +153,4 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service: ${{ env.SERVICE_COMPLETE_NAME }}
           image: ${{ env.IMAGE_COMPLETE_NAME }}
-          allow-unauthenticated: true
+          flags: '--allow-unauthenticated'
