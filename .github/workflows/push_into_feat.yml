@@ -92,7 +92,6 @@ jobs:
     env:
       REGISTRY: us-east1-docker.pkg.dev
       IMAGE_NAME: poc-hello
-      #BRANCH_NAME: ${{ github.ref }}
     name: Build docker image and push into registry
     runs-on: ubuntu-latest
     permissions:
@@ -113,6 +112,8 @@ jobs:
 
       - name: Build image tag
         run: |
+          BRANCH_NAME_END=$(echo "$github.ref" | awk -F'feature/' '{print $2}' | tr '/' '-')
+          export BRANCH_NAME=$(echo "feature-$BRANCH_NAME)
           export COMMIT_NUMBER=$(git rev-list --count HEAD)
           export COMMIT_SHA=$(git rev-parse --short HEAD)
           export TIMESTAMP=$(date +%s)
