@@ -112,8 +112,7 @@ jobs:
 
       - name: Build image tag
         run: |
-          BRANCH_NAME_END=$(echo "$GITHUB_REF" | awk -F'feature/' '{print $2}' | tr '/' '-')
-          export BRANCH_NAME=$(echo "feature-$BRANCH_NAME_END")
+          export BRANCH_NAME=$(echo "feature-$(echo "$GITHUB_REF" | awk -F'feature/' '{print $2}' | tr '/' '-')")
           export COMMIT_NUMBER=$(git rev-list --count HEAD)
           export COMMIT_SHA=$(git rev-parse --short HEAD)
           export TIMESTAMP=$(date +%s)
