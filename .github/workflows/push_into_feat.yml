@@ -7,9 +7,6 @@ on:
       - 'feature/**'
       - 'features/**'
 
-env:
-  GOTOOLCHAIN: local
-
 jobs:
   # Split build and lint into a few different jobs so they can run in parallel.
   # build:
@@ -136,7 +133,6 @@ jobs:
           password: ${{ secrets.GCP_SA_KEY }}
 
       - name: Build and push docker image
-        id: build-and-push
         uses: docker/build-push-action@v5.4.0
         with:
           context: .
@@ -150,6 +146,7 @@ jobs:
           echo "image: ${{ env.IMAGE_NAME }}"
 
       - name: Deploy into Google Cloud Run
+        id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           region: ${{ env.REGION }}
