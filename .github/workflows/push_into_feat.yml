@@ -92,7 +92,7 @@ jobs:
     env:
       REGISTRY: us-east1-docker.pkg.dev
       IMAGE_NAME: poc-hello
-      BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+      BRANCH_NAME: ${{ github.ref }}
     name: Build docker image and push into registry
     runs-on: ubuntu-latest
     permissions:
