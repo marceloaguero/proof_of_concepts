@@ -91,7 +91,7 @@ jobs:
   docker_build_push:
     env:
       REGION: us-east1
-      REGISTRY: ${REGION}-docker.pkg.dev
+      REGISTRY: ${{ REGION }}-docker.pkg.dev
       REPOSITORY: proof-of-concepts
       IMAGE_BASE_NAME: poc-hello
     name: Build docker image and push into registry
