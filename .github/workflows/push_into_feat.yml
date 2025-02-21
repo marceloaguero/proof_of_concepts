@@ -104,7 +104,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - - uses: nelonoel/branch-name@v1.0.1
+      - uses: nelonoel/branch-name@v1.0.1
 
       - name: Authenticate to GCP
         uses: 'google-github-actions/auth@v2'
