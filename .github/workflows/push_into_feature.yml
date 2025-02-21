@@ -140,10 +140,16 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_COMPLETE_NAME }}
 
-      - name: Deploy into Google Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          region: ${{ env.REGION }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service: ${{ env.SERVICE_COMPLETE_NAME }}
-          image: ${{ env.IMAGE_COMPLETE_NAME }}
+      - name: Show Deploy Parameters
+        run: |
+          echo "region: ${{ env.REGION }}"
+          echo "service: ${{ env.SERVICE_COMPLETE_NAME }}"
+          echo "image: ${{ env.IMAGE_COMPLETE_NAME }}"
+
+      # - name: Deploy into Google Cloud Run
+      #   uses: google-github-actions/deploy-cloudrun@v2
+      #   with:
+      #     region: ${{ env.REGION }}
+      #     project_id: ${{ secrets.GCP_PROJECT_ID }}
+      #     service: ${{ env.SERVICE_COMPLETE_NAME }}
+      #     image: ${{ env.IMAGE_COMPLETE_NAME }}
