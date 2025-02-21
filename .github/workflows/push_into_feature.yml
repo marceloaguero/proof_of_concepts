@@ -1,9 +1,9 @@
-name: Pull Request
+name: Push into feature branch
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - 'feature/**'
 
 env:
   GOTOOLCHAIN: local
@@ -74,60 +74,83 @@ jobs:
   #       ROOT_DIR=$(pwd) \
   #       find . -name go.mod -execdir sh -c 'go vet ./... || touch $ROOT_DIR/vet_failed.txt' \; ; \
   #       test ! -f vet_failed.txt
-  test:
-    name: Root tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'
-          
-      - name: Check code
-        uses: actions/checkout@v4
-
-      - run: go test -v
-
-  # docker_build_push:
-  #   env:
-  #     REGISTRY: ghcr.io
-  #     IMAGE_NAME: poc-hello
-  #     BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
-  #   name: Build docker image and push into registry
+  # test:
+  #   name: Root tests
   #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: read
-  #     packages: write
   #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v5
   #       with:
-  #         fetch-depth: 0
+  #         go-version: 'stable'
+  #
+  #     - name: Check code
+  #       uses: actions/checkout@v4
+  #
+  #     - run: go test -v
 
-      # - name: Authenticate to GCP
-      #   uses: google-github-actions/auth@v2
-      #   with:
-      #     credentials_json: ${{ secrets.GCP_SA_KEY }}
+  docker_build_push:
+    env:
+      REGION: us-east1
+      REGISTRY: us-east1-docker.pkg.dev
+      REPOSITORY: proof-of-concepts
+      IMAGE_BASE_NAME: poc-hello
+    name: Build docker image and push into registry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Build image tag
+      - uses: nelonoel/branch-name@v1.0.1
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set up docker image tag
         run: |
-          export COMMIT_NUMBER=$(git rev-list --count HEAD)
-          export COMMIT_SHA=$(git rev-parse --short HEAD)
-          export TIMESTAMP=$(date +%s)
-          export IMAGE_TAG="${COMMIT_NUMBER}"
-          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          IMAGE_TAG_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-')
 
-      # - name: Login to registry
-      #   uses: docker/login-action@v3
-      #   with:
-      #     registry: ${{ env.REGISTRY }}
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
-      #
-      # - name: Build and push Docker image
-      #   id: build-and-push
-      #   uses: docker/build-push-action@v5.4.0
-      #   with:
-      #     context: .
-      #     push: true
-      #     tags: ${{ env.REGISTRY }}/${{ github.actor }}/${{ env.IMAGE_NAME }}:${{ env.BRANCH_NAME }}-${{ env.IMAGE_TAG }}
+          COMMIT_NUMBER=$(git rev-list --count HEAD)
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          TIMESTAMP=$(date +%s)
+
+          IMAGE_TAG_SUFFIX="${COMMIT_NUMBER}"
+
+          echo "SERVICE_COMPLETE_NAME=${{ env.REPOSITORY }}-${{ env.IMAGE_BASE_NAME }}-${IMAGE_TAG_BRANCH}" >> $GITHUB_ENV
+          echo "IMAGE_COMPLETE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:${IMAGE_TAG_BRANCH}-${IMAGE_TAG_SUFFIX}" >> $GITHUB_ENV
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: _json_key
+          password: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Build and push docker image
+        id: build-and-push
+        uses: docker/build-push-action@v5.4.0
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE_COMPLETE_NAME }}
+
+      - name: Show Deploy Parameters
+        run: |
+          echo "region: ${{ env.REGION }}"
+          echo "service: ${{ env.SERVICE_COMPLETE_NAME }}"
+          echo "image: ${{ env.IMAGE_COMPLETE_NAME }}"
+
+      - name: Deploy into Google Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          region: ${{ env.REGION }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service: ${{ env.SERVICE_COMPLETE_NAME }}
+          image: ${{ env.IMAGE_COMPLETE_NAME }}
+          flags: '--allow-unauthenticated'
