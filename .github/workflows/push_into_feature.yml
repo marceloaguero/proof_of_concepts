@@ -122,7 +122,7 @@ jobs:
 
           IMAGE_TAG_SUFFIX="${COMMIT_NUMBER}"
 
-          echo "SERVICE_COMPLETE_NAME=${{ env.REPOSITORY }}-${{ env.IMAGE_BASE_NAME }}-${IMAGE_TAG_BRANCH}"
+          echo "SERVICE_COMPLETE_NAME=${{ env.REPOSITORY }}-${{ env.IMAGE_BASE_NAME }}-${IMAGE_TAG_BRANCH}" >> $GITHUB_ENV
           echo "IMAGE_COMPLETE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:${IMAGE_TAG_BRANCH}-${IMAGE_TAG_SUFFIX}" >> $GITHUB_ENV
 
       - name: Login to Container Registry
