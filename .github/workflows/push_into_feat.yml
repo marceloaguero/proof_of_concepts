@@ -3,7 +3,9 @@ name: Push into feature branch
 on:
   push:
     branches:
+      - 'feat/**'
       - 'feature/**'
+      - 'features/**'
 
 env:
   GOTOOLCHAIN: local
@@ -92,8 +94,9 @@ jobs:
     env:
       REGION: us-east1
       REGISTRY: us-east1-docker.pkg.dev
-      REPOSITORY: proof-of-concepts
-      IMAGE_BASE_NAME: poc-hello
+      REPOSITORY: poc
+      IMAGE_BASE_NAME: hello
+      IMAGE_ENV: dev
     name: Build docker image and push into registry
     runs-on: ubuntu-latest
     permissions:
@@ -122,8 +125,8 @@ jobs:
 
           IMAGE_TAG_SUFFIX="${COMMIT_NUMBER}"
 
-          echo "SERVICE_COMPLETE_NAME=${{ env.REPOSITORY }}-${{ env.IMAGE_BASE_NAME }}-${IMAGE_TAG_BRANCH}" >> $GITHUB_ENV
-          echo "IMAGE_COMPLETE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:${IMAGE_TAG_BRANCH}-${IMAGE_TAG_SUFFIX}" >> $GITHUB_ENV
+          echo "SERVICE_NAME=${{ env.REPOSITORY }}-${{ env.IMAGE_BASE_NAME }}-${{ env.IMAGE_ENV }}-${IMAGE_TAG_BRANCH}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:${{ env.IMAGE_ENV }}-${IMAGE_TAG_BRANCH}-${IMAGE_TAG_SUFFIX}" >> $GITHUB_ENV
 
       - name: Login to Container Registry
         uses: docker/login-action@v3
@@ -138,19 +141,23 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.IMAGE_COMPLETE_NAME }}
+          tags: ${{ env.IMAGE_NAME }}
 
       - name: Show Deploy Parameters
         run: |
           echo "region: ${{ env.REGION }}"
-          echo "service: ${{ env.SERVICE_COMPLETE_NAME }}"
-          echo "image: ${{ env.IMAGE_COMPLETE_NAME }}"
+          echo "service: ${{ env.SERVICE_NAME }}"
+          echo "image: ${{ env.IMAGE_NAME }}"
 
       - name: Deploy into Google Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           region: ${{ env.REGION }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service: ${{ env.SERVICE_COMPLETE_NAME }}
-          image: ${{ env.IMAGE_COMPLETE_NAME }}
+          service: ${{ env.SERVICE_NAME }}
+          image: ${{ env.IMAGE_NAME }}
           flags: '--allow-unauthenticated'
+
+      - name: Show Cloud Run URL
+        run: |
+          echo "URL: ${{ steps.deploy.outputs.url }}"
