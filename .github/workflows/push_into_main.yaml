@@ -100,9 +100,6 @@ jobs:
 
       # Delete Cloud Run service
       - name: Delete ephemeral unused Cloud Run Service
-        uses: schliflo/action-cloud-run@2.5.0
-        with:
-          project: ${{ secrets.GCP_PROJECT_ID }}
-          service_name: ${{ env.DELETE_SERVICE_NAME }}
-          key: ${{ secrets.GCP_SA_KEY }}
-          action: 'delete' 
+        run: |
+          gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+          gcloud run services delete ${{ env.DELETE_SERVICE_NAME }} --region ${{ env.REGION }} --quiet
