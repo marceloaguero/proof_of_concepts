@@ -81,4 +81,4 @@ jobs:
 
       - name: Print branch name
         run: |
-          echo "Current branch: ${GITHUB_REF##*/}"
+          echo "Branch name: ${{ github.ref_name }}"
