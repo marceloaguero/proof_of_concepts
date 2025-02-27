@@ -9,6 +9,7 @@ env:
   GOTOOLCHAIN: local
 
 jobs:
+  
   # Split build and lint into a few different jobs so they can run in parallel.
   build:
     name: Build
@@ -28,6 +29,7 @@ jobs:
         ROOT_DIR=$(pwd) \
         find . -name go.mod -execdir sh -c 'go build ./... || touch $ROOT_DIR/build_failed.txt' \; ; \
         test ! -f build_failed.txt
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -56,6 +58,7 @@ jobs:
         fi
     - name: shellcheck
       run: find . -name "*.sh" -exec shellcheck {} \;
+
   vet:
     name: Vet
     runs-on: ubuntu-latest
@@ -74,6 +77,7 @@ jobs:
         ROOT_DIR=$(pwd) \
         find . -name go.mod -execdir sh -c 'go vet ./... || touch $ROOT_DIR/vet_failed.txt' \; ; \
         test ! -f vet_failed.txt
+
   test:
     name: Root tests
     runs-on: ubuntu-latest

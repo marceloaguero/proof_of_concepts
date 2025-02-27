@@ -87,24 +87,26 @@ jobs:
   #
   #     - run: go test -v
 
-  docker_build_push:
+  build_push_deploy:
     env:
       REGION: us-east1
       REGISTRY: us-east1-docker.pkg.dev
       REPOSITORY: poc
       IMAGE_BASE_NAME: hello
-      IMAGE_ENV: dev
-    name: Build docker image and push into registry
+
+    name: Build Docker image, push into Registry, deploy in Cloud Run
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+       
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Get branch name. Used later to build image and service names
       - uses: nelonoel/branch-name@v1.0.1
 
       - name: Authenticate to GCP
@@ -112,9 +114,12 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      - name: Set up docker image tag
+      # Using some data from github repo, build the docker image name (and tag)
+      # Also, build Cloud Run service name
+      # Put both names in the Action environment
+      - name: Set up Docker image name and Cloud Run service name
         run: |
-          IMAGE_TAG_BRANCH=$(echo "$BRANCH_NAME" | tr '/' '-')
+          IMAGE_TAG_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
 
           COMMIT_NUMBER=$(git rev-list --count HEAD)
           COMMIT_SHA=$(git rev-parse --short HEAD)
@@ -122,9 +127,10 @@ jobs:
 
           IMAGE_TAG_SUFFIX="${COMMIT_NUMBER}"
 
-          echo "SERVICE_NAME=${{ env.REPOSITORY }}-${{ env.IMAGE_BASE_NAME }}-${{ env.IMAGE_ENV }}-${IMAGE_TAG_BRANCH}" >> $GITHUB_ENV
-          echo "IMAGE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:${{ env.IMAGE_ENV }}-${IMAGE_TAG_BRANCH}-${IMAGE_TAG_SUFFIX}" >> $GITHUB_ENV
+          echo "SERVICE_NAME=${IMAGE_TAG_BRANCH}-${{ env.IMAGE_BASE_NAME }}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:${IMAGE_TAG_BRANCH}-${IMAGE_TAG_SUFFIX}" >> $GITHUB_ENV
 
+      # Login into docker images registry. In our case, Google Artifact Registry
       - name: Login to Container Registry
         uses: docker/login-action@v3
         with:
@@ -132,6 +138,7 @@ jobs:
           username: _json_key
           password: ${{ secrets.GCP_SA_KEY }}
 
+      # Then build docker image and push into registry
       - name: Build and push docker image
         uses: docker/build-push-action@v5.4.0
         with:
@@ -139,12 +146,7 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_NAME }}
 
-      - name: Show Deploy Parameters
-        run: |
-          echo "region: ${{ env.REGION }}"
-          echo "service: ${{ env.SERVICE_NAME }}"
-          echo "image: ${{ env.IMAGE_NAME }}"
-
+      # Deploy the created image to Cloud Run
       - name: Deploy into Google Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
