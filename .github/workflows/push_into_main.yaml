@@ -79,6 +79,16 @@ jobs:
         run: |
           echo "URL: ${{ steps.deploy.outputs.url }}"
 
-      - name: Print branch name
+      - name: Get Source Branch
         run: |
-          echo "Branch name: ${{ github.ref_name }}"
+          MERGE_COMMIT=$(git rev-parse HEAD)
+          SOURCE_BRANCH=$(git log --merges --pretty=format:"%P" -n 1 $MERGE_COMMIT | awk '{print $2}')
+          echo "Merge Commit: $MERGE_COMMIT"
+          echo "Parent Commit (Source Branch Head): $SOURCE_BRANCH"
+          
+          # Try to find branch name from refs
+          BRANCH_NAME=$(git branch -r --contains $SOURCE_BRANCH | grep -v main | head -n 1 | sed 's/origin\///')
+          echo "SOURCE_BRANCH=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Show Detected Source Branch
+        run: echo "Merged from branch: $SOURCE_BRANCH"
