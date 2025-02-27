@@ -80,7 +80,10 @@ jobs:
           echo "URL: ${{ steps.deploy.outputs.url }}"
 
       - name: Display Branch Name
-        run: echo "Branch Name: ${{ github.head_ref }}"
+        run: |
+          echo "Branch Name: ${{ github.head_ref }}"
+
       - name: Display Pull Request Source Branch
         if: github.event_name == 'pull_request'
-        run: echo "Pull Request Source Branch: ${{ github.event.pull_request.head.ref }}"
+        run: |
+           echo "Pull Request Source Branch: ${{ github.event.pull_request.head.ref }}"
