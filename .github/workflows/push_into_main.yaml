@@ -78,3 +78,11 @@ jobs:
       - name: Show Cloud Run URL
         run: |
           echo "URL: ${{ steps.deploy.outputs.url }}"
+
+      - name: Display Branch Name
+        run: |
+          if [[ -n ${{ github.head_ref }} ]]; then
+            echo "Branch Name 1: ${{ github.head_ref }}"
+          else
+            echo "Branch Name 2: ${{ github.ref##*/ }}"
+          fi
