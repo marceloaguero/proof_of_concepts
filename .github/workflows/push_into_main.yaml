@@ -79,7 +79,10 @@ jobs:
         run: |
           echo "URL: ${{ steps.deploy.outputs.url }}"
 
-      - name: Get Source Branch
+      # We need to remove unused services from Cloud Run.
+      # So, we need to know the name of the branch that originates the merge into main.
+      # Then, call Cloud Run to delete the service (ephemeral services use branch names).
+      - name: Get Source Branch and build Service name
         run: |
           MERGE_COMMIT=$(git rev-parse HEAD)
           SOURCE_BRANCH=$(git log --merges --pretty=format:"%P" -n 1 $MERGE_COMMIT | awk '{print $2}')
@@ -88,8 +91,16 @@ jobs:
           
           # Try to find branch name from refs
           BRANCH_NAME=$(git branch -r --contains $SOURCE_BRANCH | grep -v main | head -n 1 | sed 's/origin\///')
-          echo "SOURCE_BRANCH=$BRANCH_NAME" >> $GITHUB_ENV
+          
+          # Setup Cloud Run Service name
+          IMAGE_TAG_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+          echo "DELETE_SERVICE_NAME=${IMAGE_TAG_BRANCH}-${{ env.IMAGE_BASE_NAME }}" >> $GITHUB_ENV
 
-      - name: Show Detected Source Branch
-        run: |
-          echo "Merged from branch: $SOURCE_BRANCH"
+      # Delete Cloud Run service
+      - name: Delete ephemeral unused Cloud Run Service
+        uses: schliflo/action-cloud-run@2.5.0
+        with:
+          project: ${{ secrets.GCP_PROJECT_ID }}
+          service_name: ${{ env.DELETE_SERVICE_NAME }}
+          key: ${{ secrets.GCP_SA_KEY }}
+          action: 'delete' 
