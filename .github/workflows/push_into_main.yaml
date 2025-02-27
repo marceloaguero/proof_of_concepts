@@ -91,4 +91,5 @@ jobs:
           echo "SOURCE_BRANCH=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Show Detected Source Branch
-        run: echo "Merged from branch: $SOURCE_BRANCH"
+        run: |
+          echo "Merged from branch: $SOURCE_BRANCH"
