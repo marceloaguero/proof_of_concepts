@@ -7,8 +7,6 @@ on:
 
 env:
   GOTOOLCHAIN: local
-
-env:
   REGION: us-east1
   REGISTRY: us-east1-docker.pkg.dev
   REPOSITORY: poc
