@@ -8,16 +8,15 @@ on:
 env:
   GOTOOLCHAIN: local
 
-jobs:
-  # Asume that all tests passed during pull request phase
-  build_push_deploy:
-    env:
-      REGION: us-east1
-      REGISTRY: us-east1-docker.pkg.dev
-      REPOSITORY: poc
-      IMAGE_BASE_NAME: hello
+env:
+  REGION: us-east1
+  REGISTRY: us-east1-docker.pkg.dev
+  REPOSITORY: poc
+  IMAGE_BASE_NAME: hello
 
-    name: Build Docker image, push into Registry, deploy in Cloud Run
+jobs:
+  build_push_deploy:
+    name: Build, Push, and Deploy to Cloud Run
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,26 +28,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Using some data from github repo, build the docker image name (and tag)
+      # Also, build Cloud Run service name
+      - name: Set up Docker image name and Cloud Run service name
+        run: |
+          COMMIT_NUMBER=$(git rev-list --count HEAD)
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          IMAGE_TAG_SUFFIX="${COMMIT_NUMBER}-${COMMIT_SHA}"
+
+          echo "SERVICE_NAME=${{ env.IMAGE_BASE_NAME }}-qa" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:qa-${IMAGE_TAG_SUFFIX}" >> $GITHUB_ENV
+
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # Using some data from github repo, build the docker image name (and tag)
-      # Also, build Cloud Run service name
-      # Put both names in the Action environment
-      - name: Set up docker image tag
-        run: |
-          COMMIT_NUMBER=$(git rev-list --count HEAD)
-          COMMIT_SHA=$(git rev-parse --short HEAD)
-          TIMESTAMP=$(date +%s)
-
-          IMAGE_TAG_SUFFIX="${COMMIT_NUMBER}"
-
-          echo "SERVICE_NAME=qa-${{ env.IMAGE_BASE_NAME }}" >> $GITHUB_ENV
-          echo "IMAGE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:qa-${IMAGE_TAG_SUFFIX}" >> $GITHUB_ENV
-
-      # Login into docker images registry. In our case, Google Artifact Registry
       - name: Login to Container Registry
         uses: docker/login-action@v3
         with:
@@ -56,7 +51,6 @@ jobs:
           username: _json_key
           password: ${{ secrets.GCP_SA_KEY }}
 
-      # Then build docker image and push into registry
       - name: Build and push docker image
         uses: docker/build-push-action@v5.4.0
         with:
@@ -64,7 +58,6 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_NAME }}
 
-      # Deploy the created image to Cloud Run
       - name: Deploy into Google Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
@@ -79,27 +72,58 @@ jobs:
         run: |
           echo "URL: ${{ steps.deploy.outputs.url }}"
 
-      # We need to remove unused services from Cloud Run.
-      # So, we need to know the name of the branch that originates the merge into main.
-      # Then, call Cloud Run to delete the service (ephemeral services use branch names).
+  # We need to remove unused services from Cloud Run.
+  # So, we need to know the name of the branch that originates the merge into main.
+  # Then, call Cloud Run to delete the service (ephemeral services use branch names).
+  cleanup_ephemeral:
+    needs: build_push_deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
       - name: Get Source Branch and build Service name
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          MERGE_COMMIT=$(git rev-parse HEAD)
-          SOURCE_BRANCH=$(git log --merges --pretty=format:"%P" -n 1 $MERGE_COMMIT | awk '{print $2}')
+          # Get the latest merge commit SHA
+          MERGE_COMMIT="${{ github.sha }}"
           echo "Merge Commit: $MERGE_COMMIT"
-          echo "Parent Commit (Source Branch Head): $SOURCE_BRANCH"
+
+          # Fetch closed PRs from GitHub API and filter the one matching the merge commit
+          PR_INFO=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+                          -H "Accept: application/vnd.github.v3+json" \
+                          "https://api.github.com/repos/${{ github.repository }}/pulls?state=closed")
+
+          # Debugging: Print raw API response
+          echo "PR_INFO: $PR_INFO"
+
+          # Extract the source branch using jq
+          SOURCE_BRANCH=$(echo "$PR_INFO" | jq -r --arg MERGE_COMMIT "$MERGE_COMMIT" \
+              'map(select(.merge_commit_sha == $MERGE_COMMIT)) | .[0].head.ref // empty')
+
+          # Validate that we got a branch
+          if [ -z "$SOURCE_BRANCH" ] || [ "$SOURCE_BRANCH" == "null" ]; then
+            echo "Could not determine source branch."
+            exit 1
+          fi
+
+          echo "Source Branch: $SOURCE_BRANCH"
+
+          # Generate the Cloud Run Service name from the branch name
+          IMAGE_TAG_BRANCH=$(echo "$SOURCE_BRANCH" | tr '[:upper:]' '[:lower:]' | tr '/' '-' | cut -c1-50)
+          DELETE_SERVICE_NAME="${{ env.IMAGE_BASE_NAME }}-${IMAGE_TAG_BRANCH}"
           
-          # Try to find branch name from refs
-          BRANCH_NAME=$(git branch -r --contains $SOURCE_BRANCH | grep -v main | head -n 1 | sed 's/origin\///')
-          
-          # Setup Cloud Run Service name
-          IMAGE_TAG_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
-          DELETE_SERVICE_NAME=${IMAGE_TAG_BRANCH}-${{ env.IMAGE_BASE_NAME }}
-          echo "Service to delete: ${DELETE_SERVICE_NAME}"
+          echo "Service to delete: $DELETE_SERVICE_NAME"
           echo "DELETE_SERVICE_NAME=${DELETE_SERVICE_NAME}" >> $GITHUB_ENV
 
-      # Delete Cloud Run service
-      - name: Delete ephemeral unused Cloud Run Service
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+           credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Delete ephemeral Cloud Run Service
         run: |
           gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
-          gcloud run services delete ${{ env.DELETE_SERVICE_NAME }} --region ${{ env.REGION }} --quiet
+          gcloud run services delete ${{ env.DELETE_SERVICE_NAME }} --region ${{ env.REGION }} --quiet || echo "Service not found, skipping."
