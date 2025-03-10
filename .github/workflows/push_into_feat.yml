@@ -104,7 +104,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Get branch name for naming images/services
+      # Get branch name. Used later to build image and service names
       - uses: nelonoel/branch-name@v1.0.1
 
       # Using some data from github repo, build the docker image name (and tag)
@@ -133,15 +133,14 @@ jobs:
           password: ${{ secrets.GCP_SA_KEY }}
 
       - name: Build and push docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v5.4.0
         with:
           context: .
-          file: Dockerfile
-          platforms: linux/amd64
           push: true
           tags: ${{ env.IMAGE_NAME }}
 
-      - name: Deploy to Cloud Run
+      # Deploy the created image to Cloud Run
+      - name: Deploy into Google Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
