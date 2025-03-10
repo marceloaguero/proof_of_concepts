@@ -1,0 +1,76 @@
+name: Promote QA to Production
+
+on:
+  release:
+    types: [published]
+
+env:
+  REGION: us-east1
+  REGISTRY: us-east1-docker.pkg.dev
+  REPOSITORY: poc
+  IMAGE_BASE_NAME: hello
+  QA_SERVICE_NAME: hello-qa
+  PROD_SERVICE_NAME: hello-prod
+
+jobs:
+  promote_to_prod:
+    name: Promote QA to Production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Release Version
+        run: |
+          VERSION_TAG=${{ github.event.release.tag_name }}
+          VERSION_TAG=${VERSION_TAG#v}  # Remove 'v' prefix if present
+          echo "VERSION_TAG=${VERSION_TAG}" >> $GITHUB_ENV
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Get Latest QA Image Tag
+        run: |
+          IMAGE_PATH="${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}"
+          
+          # Get the latest image tag from Artifact Registry for QA
+          LATEST_QA_TAG=$(gcloud artifacts docker images list $IMAGE_PATH \
+            --include-tags --sort-by=~CREATE_TIME --limit=1 \
+            --filter="tags ~ qa-" --format="value(tags)")
+          
+          if [ -z "$LATEST_QA_TAG" ]; then
+            echo "No QA image found! Exiting."
+            exit 1
+          fi
+
+          echo "Latest QA Image: $IMAGE_PATH:$LATEST_QA_TAG"
+          echo "QA_IMAGE_TAG=$LATEST_QA_TAG" >> $GITHUB_ENV
+
+      - name: Tag QA Image for Production
+        run: |
+          IMAGE_PATH="${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}"
+          docker pull $IMAGE_PATH:$QA_IMAGE_TAG
+          docker tag $IMAGE_PATH:$QA_IMAGE_TAG $IMAGE_PATH:prod-${{ env.VERSION_TAG }}
+          docker push $IMAGE_PATH:prod-${{ env.VERSION_TAG }}
+
+      - name: Deploy to Production Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          region: ${{ env.REGION }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service: ${{ env.PROD_SERVICE_NAME }}
+          image: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:prod-${{ env.VERSION_TAG }}
+          flags: '--allow-unauthenticated'
+
+      - name: Show Production Cloud Run URL
+        run: |
+          echo "Production URL: ${{ steps.deploy.outputs.url }}"
