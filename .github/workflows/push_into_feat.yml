@@ -151,11 +151,7 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service: ${{ env.SERVICE_NAME }}
           image: ${{ env.IMAGE_NAME }}
-          env_vars: |
-            EXECUTION_ENV=dev
-          flags: '--allow-unauthenticated --execution-environment=gen2 --ingress=all --network=redy-dev --subnet=redy-dev-services --max-instances=2 --memory=512Mi --cpu=1'
-          secrets: |
-            /secrets/mongourl.yaml=DEV_MONGOURL:latest
+          flags: '--allow-unauthenticated'
 
       - name: Show Cloud Run URL
         run: |
