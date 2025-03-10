@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - 'feat/**'
-      - 'feature/**'
-      - 'features/**'
 
 jobs:
   # Split build and lint into a few different jobs so they can run in parallel.
