@@ -94,7 +94,7 @@ jobs:
       REPOSITORY: poc
       IMAGE_BASE_NAME: hello
 
-    name: Build Docker image, push into Registry, deploy in Cloud Run
+    name: Build, Push, and Deploy to Cloud Run
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -106,31 +106,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Get branch name. Used later to build image and service names
+      # Get branch name for naming images/services
       - uses: nelonoel/branch-name@v1.0.1
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
       # Using some data from github repo, build the docker image name (and tag)
       # Also, build Cloud Run service name
       # Put both names in the Action environment
       - name: Set up Docker image name and Cloud Run service name
         run: |
-          IMAGE_TAG_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
-
+          IMAGE_TAG_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-' | cut -c1-50)
           COMMIT_NUMBER=$(git rev-list --count HEAD)
           COMMIT_SHA=$(git rev-parse --short HEAD)
-          TIMESTAMP=$(date +%s)
+          IMAGE_TAG_SUFFIX="${COMMIT_NUMBER}-${COMMIT_SHA}"
 
-          IMAGE_TAG_SUFFIX="${COMMIT_NUMBER}"
-
-          echo "SERVICE_NAME=${IMAGE_TAG_BRANCH}-${{ env.IMAGE_BASE_NAME }}" >> $GITHUB_ENV
+          echo "SERVICE_NAME=${{ env.IMAGE_BASE_NAME }}-${IMAGE_TAG_BRANCH}" >> $GITHUB_ENV
           echo "IMAGE_NAME=${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_BASE_NAME }}:${IMAGE_TAG_BRANCH}-${IMAGE_TAG_SUFFIX}" >> $GITHUB_ENV
 
-      # Login into docker images registry. In our case, Google Artifact Registry
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
       - name: Login to Container Registry
         uses: docker/login-action@v3
         with:
@@ -138,16 +134,16 @@ jobs:
           username: _json_key
           password: ${{ secrets.GCP_SA_KEY }}
 
-      # Then build docker image and push into registry
       - name: Build and push docker image
-        uses: docker/build-push-action@v5.4.0
+        uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile-run
+          platforms: linux/amd64
           push: true
           tags: ${{ env.IMAGE_NAME }}
 
-      # Deploy the created image to Cloud Run
-      - name: Deploy into Google Cloud Run
+      - name: Deploy to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -155,7 +151,11 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           service: ${{ env.SERVICE_NAME }}
           image: ${{ env.IMAGE_NAME }}
-          flags: '--allow-unauthenticated'
+          env_vars: |
+            EXECUTION_ENV=dev
+          flags: '--allow-unauthenticated --execution-environment=gen2 --ingress=all --network=redy-dev --subnet=redy-dev-services --max-instances=2 --memory=512Mi --cpu=1'
+          secrets: |
+            /secrets/mongourl.yaml=DEV_MONGOURL:latest
 
       - name: Show Cloud Run URL
         run: |
